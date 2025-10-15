@@ -56,6 +56,9 @@ from rich.panel import Panel
 console = Console()
 
 
+TBase16 = Dict[str, str]
+
+
 def normalize_color(color: str) -> str:
     """Normalize color string for comparison.
 
@@ -143,8 +146,8 @@ def delta_e_distance(color1: str, color2: str) -> Optional[float]:
 
 
 def find_closest_base16_color(
-    target_color: str, base16_palette: Dict[str, str]
-) -> Tuple[str, float, Optional[float]]:
+    target_color: str, base16_palette: TBase16
+) -> Tuple[str, float, float | None]:
     """Find the closest base16 color to the target color.
 
     Returns tuple of (base16_key, rgb_distance, delta_e_distance)
@@ -214,7 +217,6 @@ def parse_base16_palette(yaml_path: Path) -> Dict[str, str]:
     """
     with open(yaml_path, "r") as f:
         data = yaml.safe_load(f)
-
     return data.get("palette", {})
 
 
@@ -231,12 +233,11 @@ def build_color_frequency_map(vscode_colors: Dict[str, str]) -> Dict[str, List[s
         normalized = normalize_color(color)
         if normalized:
             frequency_map[normalized].append(key)
-
     return dict(frequency_map)
 
 
 def map_vscode_to_base16(
-    vscode_colors: Dict[str, str], base16_palette: Dict[str, str]
+    vscode_colors: Dict[str, str], base16_palette: TBase16
 ) -> Dict[str, List[Tuple[str, str]]]:
     """Map VS Code colors to base16 palette entries.
 
@@ -268,8 +269,51 @@ def map_vscode_to_base16(
     return dict(mapping)
 
 
+def _print_delta(delta: Optional[float], dist: float):
+    if delta is not None:
+        if delta < 10:
+            similarity_style = "green"
+            similarity_label = "very similar"
+        elif delta < 50:
+            similarity_style = "yellow"
+            similarity_label = "different"
+        else:
+            similarity_style = "red"
+            similarity_label = "very different"
+
+        console.print(
+            f"    Delta E: [{similarity_style}]{delta:.2f}[/{similarity_style}] "
+            f"({similarity_label}), RGB distance: {dist:.2f}",
+            style="dim",
+        )
+    else:
+        console.print(f"    RGB distance: {dist:.2f}", style="dim")
+
+
+def _print_unmapped(unmapped_by_color: defaultdict, palette: TBase16):
+    for color, keys in sorted(unmapped_by_color.items(), key=lambda x: len(x[1]), reverse=True):
+        console.print(f"\n  Color: {color}", style=color_for_display(color))
+        console.print(f"  Used in {len(keys)} locations:", style="dim")
+
+        closest_key, rgb_dist, delta_e = find_closest_base16_color(color, palette)
+        closest_color = palette.get(closest_key, "")
+
+        console.print("  Closest match: ", style="dim", end="")
+        console.print(f"{closest_key} ", style=color_for_display(closest_color), end="")
+        console.print("-> ", style="dim", end="")
+        console.print(f"{closest_color}", style=color_for_display(closest_color))
+
+        _print_delta(delta_e, rgb_dist)
+
+        for key in keys[:3]:
+            console.print(f"    - {key}", style="dim")
+
+        if len(keys) > 3:
+            console.print(f"    ... and {len(keys) - 3} more", style="dim italic")
+
+
 def display_color_analysis(
-    base16_palette: Dict[str, str],
+    base16_palette: TBase16,
     vscode_to_base16: Dict[str, List[Tuple[str, str]]],
     frequency_map: Dict[str, List[str]],
 ):
@@ -311,47 +355,12 @@ def display_color_analysis(
     if "unmapped" in vscode_to_base16:
         console.print("\n[bold yellow]Unmapped Colors[/bold yellow]")
         unmapped = vscode_to_base16["unmapped"]
-
         unmapped_by_color = defaultdict(list)
+
         for key, color in unmapped:
             unmapped_by_color[color].append(key)
 
-        for color, keys in sorted(unmapped_by_color.items(), key=lambda x: len(x[1]), reverse=True):
-            console.print(f"\n  Color: {color}", style=color_for_display(color))
-            console.print(f"  Used in {len(keys)} locations:", style="dim")
-
-            closest_key, rgb_dist, delta_e = find_closest_base16_color(color, base16_palette)
-            closest_color = base16_palette.get(closest_key, "")
-
-            console.print("  Closest match: ", style="dim", end="")
-            console.print(f"{closest_key} ", style=color_for_display(closest_color), end="")
-            console.print("-> ", style="dim", end="")
-            console.print(f"{closest_color}", style=color_for_display(closest_color))
-
-            if delta_e is not None:
-                if delta_e < 10:
-                    similarity_style = "green"
-                    similarity_label = "very similar"
-                elif delta_e < 50:
-                    similarity_style = "yellow"
-                    similarity_label = "different"
-                else:
-                    similarity_style = "red"
-                    similarity_label = "very different"
-
-                console.print(
-                    f"    Delta E: [{similarity_style}]{delta_e:.2f}[/{similarity_style}] "
-                    f"({similarity_label}), RGB distance: {rgb_dist:.2f}",
-                    style="dim",
-                )
-            else:
-                console.print(f"    RGB distance: {rgb_dist:.2f}", style="dim")
-
-            for key in keys[:3]:
-                console.print(f"    - {key}", style="dim")
-
-            if len(keys) > 3:
-                console.print(f"    ... and {len(keys) - 3} more", style="dim italic")
+        _print_unmapped(unmapped_by_color, base16_palette)
 
     console.print("\n")
     console.print(
@@ -364,7 +373,7 @@ def display_color_analysis(
 
 
 def _build_summary_text(
-    base16_palette: Dict[str, str],
+    base16_palette: TBase16,
     vscode_to_base16: Dict[str, List[Tuple[str, str]]],
     frequency_map: Dict[str, List[str]],
 ) -> str:
@@ -418,12 +427,7 @@ def _build_summary_text(
             ]
         )
 
-    lines.extend(
-        [
-            "",
-            "Most repeated colors:",
-        ]
-    )
+    lines.extend(["", "Most repeated colors:"])
 
     for color, keys in repeated[:3]:
         lines.append(f"  - #{color}: used {len(keys)} times")
@@ -447,7 +451,8 @@ def parse_args() -> argparse.Namespace:
         "--theme",
         type=Path,
         default=default_theme,
-        help=f"Path to VS Code theme JSON file (default: {default_theme.relative_to(Path.cwd()) if default_theme.is_relative_to(Path.cwd()) else default_theme})",
+        help="Path to VS Code theme JSON file (default: "
+        f"{default_theme.relative_to(Path.cwd()) if default_theme.is_relative_to(Path.cwd()) else default_theme})",
     )
 
     parser.add_argument(
@@ -455,7 +460,8 @@ def parse_args() -> argparse.Namespace:
         "--palette",
         type=Path,
         default=default_palette,
-        help=f"Path to base16 palette YAML file (default: {default_palette.relative_to(Path.cwd()) if default_palette.is_relative_to(Path.cwd()) else default_palette})",
+        help="Path to base16 palette YAML file (default: "
+        f"{default_palette.relative_to(Path.cwd()) if default_palette.is_relative_to(Path.cwd()) else default_palette})",
     )
 
     return parser.parse_args()

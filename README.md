@@ -14,6 +14,21 @@ uv sync
 
 ## Theming
 
+### Base16 YAML Downloader
+
+Downloads Base16 theme YAML files from the [tinted-theming]("https://github.com/tinted-theming/schemes/tree/spec-0.11/base16") repository.
+
+```bash
+uv run scripts/fetcher.py --help
+```
+
+- Fetches YAML files using unauthenticated GitHub API
+- Async downloads with progress bars (trio + httpx)
+- Smart caching by commit hash (skips redownload if up-to-date)
+- Configurable output directory
+- Optional file limit for testing
+- Downloads to: `{output_dir}/{commit_hash}/themes/*.yaml`
+
 ### VS Code Theme Analyzer
 
 Analyzes VS Code theme JSON files and maps colors to base16 palette entries.
@@ -57,19 +72,27 @@ uv run scripts/template_generator.py --help
 
 ### Workflow
 
-1. Analyze a theme to understand its color usage:
+1. Download base16 YAML palettes:
+
+   ```bash
+   uv run scripts/fetcher.py
+   # Or test with a limit:
+   uv run scripts/fetcher.py --limit 5
+   ```
+
+2. Analyze a theme to understand its color usage:
 
    ```bash
    uv run scripts/vscode.py -t theme.json -p palette.yml
    ```
 
-2. Generate a reusable template (optional):
+3. Generate a reusable template (optional):
 
    ```bash
    uv run scripts/template_generator.py -t theme.json -p palette.yml
    ```
 
-3. Build themes from any base16 palette:
+4. Build themes from any base16 palette:
 
    ```bash
    uv run scripts/theme_builder.py -p new-palette.yml

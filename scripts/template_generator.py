@@ -80,7 +80,6 @@ def build_color_to_base16_map(
     """
     color_map = {}
 
-    # Exact matches
     for base16_key, color in base16_palette.items():
         normalized = normalize_color(color)
         color_map[normalized] = (base16_key, True)
@@ -228,7 +227,8 @@ def parse_args() -> argparse.Namespace:
         "--palette",
         type=Path,
         default=default_palette,
-        help=f"Path to base16 palette YAML file (default: {default_palette.relative_to(Path.cwd()) if default_palette.is_relative_to(Path.cwd()) else default_palette})",
+        help=f"Path to base16 palette YAML file "
+        f"(default: {default_palette.relative_to(Path.cwd()) if default_palette.is_relative_to(Path.cwd()) else default_palette})",
     )
 
     parser.add_argument(
@@ -236,7 +236,8 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=default_output,
-        help=f"Output template file path (default: {default_output.relative_to(Path.cwd()) if default_output.is_relative_to(Path.cwd()) else default_output})",
+        help=f"Output template file path "
+        f"(default: {default_output.relative_to(Path.cwd()) if default_output.is_relative_to(Path.cwd()) else default_output})",
     )
 
     parser.add_argument(

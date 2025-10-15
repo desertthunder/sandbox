@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "coloraide>=3.4.0",
+    "httpx>=0.28.1",
     "jinja2>=3.1.6",
     "pyyaml>=6.0.3",
     "rich>=14.2.0",
+    "tqdm>=4.67.1",
+    "trio>=0.31.0",
 ]
