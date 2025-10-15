@@ -5,67 +5,72 @@ A personal experimentation and data analysis workspace.
 ## Setup
 
 ```bash
-# Install dependencies with uv
+# Install uv if it's not on your system
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Then install dependencies with uv
 uv sync
 ```
 
-## Projects
+## Theming
 
-### VS Code Theme → Base16 Color Mapper
+### VS Code Theme Analyzer
 
-Analyzes VS Code theme JSON files and maps colors to base16 palette entries, helping you understand which base16 colors correspond to which VS Code theme tokens.
-
-#### Usage
+Analyzes VS Code theme JSON files and maps colors to base16 palette entries.
 
 ```bash
-# Run with default files (data/rose-pine-moon.{json,yml})
-uv run scripts/vscode.py
-
-# Use custom theme and palette files
-uv run scripts/vscode.py --theme path/to/theme.json --palette path/to/palette.yml
-
-# Short flags
-uv run scripts/vscode.py -t path/to/theme.json -p path/to/palette.yml
-
-# Show help
 uv run scripts/vscode.py --help
 ```
 
-Default files:
+- Maps VSCode theme colors to base16 palette entries
+- Shows color variations (alpha channels)
+- Calculates Delta E 2000 for perceptual color similarity
+- Rich terminal output with color previews
 
-- `data/rose-pine-moon.json` - VS Code theme file
-- `data/rose-pine-moon.yml` - Base16 color palette
+### Base16 Theme Builder
 
-#### How Color Similarity Works
+Generates VSCode theme JSON files from base16 palette YAML files using Jinja2 templates.
 
-The tool uses two distance metrics:
+```bash
+uv run scripts/theme_builder.py --help
+```
 
-1. **RGB Euclidean Distance** - Simple geometric distance in RGB space
-   - Fast but not perceptually accurate
-   - Range: 0 to ~441.67
+- Template-based theme generation
+- Supports any base16 color palette
+- Outputs to `out/` directory
 
-2. **Delta E 2000** - Perceptually uniform color difference
-   - Uses CIE Lab color space via the `coloraide` library
-   - Matches human perception of color differences
-   - Interpretation:
-     - **< 10**: Very similar colors (green)
-     - **10-50**: Different colors (yellow)
-     - **> 50**: Very different colors (red)
+See [data/](./data/rose-pine-moon.yml) for an example base16 palette format and the tinted-theming
+[gallery](https://tinted-theming.github.io/tinted-gallery/) for more palettes
 
-#### Output
+### Template Generator
 
-The analyzer provides:
+Automatically generates Jinja2 templates from existing VSCode themes.
 
-- **Mapped Colors**: VS Code tokens that exactly match base16 colors
-- **Color Variations**: Alpha channel variations of base16 colors
-- **Unmapped Colors**: Colors not in the base16 palette
-    - Shows closest base16 match
-    - Displays Delta E 2000 similarity score
-    - Visual side-by-side color comparison
-- **Summary Stats**: Color usage patterns and similarity metrics
+```bash
+uv run scripts/template_generator.py --help
+```
 
-#### Dependencies
+- Analyzes existing themes to extract base16 color mappings
+- Replaces colors with Jinja2 variables (`{{ baseXX }}`)
+- Preserves alpha channel variations
+- Optional similarity matching (Delta E threshold)
 
-- `coloraide` - Perceptual color distance calculations
-- `pyyaml` - YAML parsing for base16 palettes
-- `rich` - Beautiful terminal output
+### Workflow
+
+1. Analyze a theme to understand its color usage:
+
+   ```bash
+   uv run scripts/vscode.py -t theme.json -p palette.yml
+   ```
+
+2. Generate a reusable template (optional):
+
+   ```bash
+   uv run scripts/template_generator.py -t theme.json -p palette.yml
+   ```
+
+3. Build themes from any base16 palette:
+
+   ```bash
+   uv run scripts/theme_builder.py -p new-palette.yml
+   ```

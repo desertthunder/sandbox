@@ -1,16 +1,44 @@
 #!/usr/bin/env python3
-"""
-VS Code Theme to Base16 Color Mapper
+"""VS Code Theme to Base16 Color Mapper.
 
 Analyzes VS Code theme JSON files and maps colors to base16 palette entries,
 showing which base16 colors correspond to which VS Code theme tokens.
 
 Usage:
-    # Use default files
+    # Use default files (data/rose-pine-moon.{json,yml})
     uv run scripts/vscode.py
 
-    # Custom files
+    # Custom theme and palette files
     uv run scripts/vscode.py --theme <path> --palette <path>
+
+    # Short flags
+    uv run scripts/vscode.py -t theme.json -p palette.yml
+
+Color Similarity Metrics:
+    1. RGB Euclidean Distance
+       - Simple geometric distance in RGB space
+       - Fast but not perceptually accurate
+       - Range: 0 to ~441.67
+
+    2. Delta E 2000
+       - Perceptually uniform color difference using CIE Lab color space
+       - Matches human perception of color differences
+       - < 10: Very similar (green)
+       - 10-50: Different (yellow)
+       - > 50: Very different (red)
+
+Output:
+    - Mapped Colors: VSCode tokens that exactly match base16 colors
+    - Color Variations: Alpha channel variations of base16 colors
+    - Unmapped Colors: Colors not in the base16 palette, with:
+      * Closest base16 match
+      * Delta E 2000 similarity score
+      * Visual color comparison
+    - Summary Statistics: Color usage patterns and similarity metrics
+
+Default Files:
+    - Theme: data/rose-pine-moon.json
+    - Palette: data/rose-pine-moon.yml
 """
 
 import argparse
@@ -29,8 +57,8 @@ console = Console()
 
 
 def normalize_color(color: str) -> str:
-    """
-    Normalize color string for comparison.
+    """Normalize color string for comparison.
+
     Converts to lowercase and strips the # prefix.
     """
     if not color:
@@ -39,8 +67,8 @@ def normalize_color(color: str) -> str:
 
 
 def strip_alpha(color: str) -> str:
-    """
-    Strip alpha channel from color if present.
+    """Strip alpha channel from color if present.
+
     Converts #RRGGBBAA to #RRGGBB
     """
     normalized = normalize_color(color)
@@ -50,9 +78,7 @@ def strip_alpha(color: str) -> str:
 
 
 def color_for_display(color: str) -> str:
-    """
-    Prepare color for rich display by stripping alpha and adding # prefix.
-    """
+    """Prepare color for rich display by stripping alpha and adding # prefix."""
     if not color or color.lower() == "#0000":
         return "#000000"  # Transparent colors -> black for display
 
@@ -63,8 +89,8 @@ def color_for_display(color: str) -> str:
 
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
-    """
-    Convert hex color string to RGB tuple.
+    """Convert hex color string to RGB tuple.
+
     Handles both #RRGGBB and RRGGBB formats.
     """
     normalized = normalize_color(hex_color)
@@ -77,8 +103,8 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
 
 
 def rgb_distance(color1: str, color2: str) -> float:
-    """
-    Calculate Euclidean distance between two colors in RGB space.
+    """Calculate Euclidean distance between two colors in RGB space.
+
     Simple but not perceptually accurate.
 
     Returns distance in range [0, 441.67] where:
@@ -91,8 +117,8 @@ def rgb_distance(color1: str, color2: str) -> float:
 
 
 def delta_e_distance(color1: str, color2: str) -> Optional[float]:
-    """
-    Calculate Delta E 2000 distance between two colors using coloraide.
+    """Calculate Delta E 2000 distance between two colors using coloraide.
+
     Perceptually uniform - matches human color perception.
 
     Returns Delta E value where:
@@ -119,8 +145,7 @@ def delta_e_distance(color1: str, color2: str) -> Optional[float]:
 def find_closest_base16_color(
     target_color: str, base16_palette: Dict[str, str]
 ) -> Tuple[str, float, Optional[float]]:
-    """
-    Find the closest base16 color to the target color.
+    """Find the closest base16 color to the target color.
 
     Returns tuple of (base16_key, rgb_distance, delta_e_distance)
     """
@@ -146,8 +171,7 @@ def find_closest_base16_color(
 
 
 def parse_vscode_theme(theme_path: Path) -> Dict[str, str]:
-    """
-    Parse VS Code theme JSON and extract all color definitions.
+    """Parse VS Code theme JSON and extract all color definitions.
 
     Returns a dict mapping key paths to color values.
     E.g., {"colors.editor.background": "#232136", ...}
@@ -183,8 +207,7 @@ def parse_vscode_theme(theme_path: Path) -> Dict[str, str]:
 
 
 def parse_base16_palette(yaml_path: Path) -> Dict[str, str]:
-    """
-    Parse base16 YAML and extract palette.
+    """Parse base16 YAML and extract palette.
 
     Returns a dict mapping base16 keys to color values.
     E.g., {"base00": "#232136", ...}
@@ -196,8 +219,8 @@ def parse_base16_palette(yaml_path: Path) -> Dict[str, str]:
 
 
 def build_color_frequency_map(vscode_colors: Dict[str, str]) -> Dict[str, List[str]]:
-    """
-    Build a map of colors to the keys that use them.
+    """Build a map of colors to the keys that use them.
+
     Shows which colors are repeated and where.
 
     Returns dict: {color (normalized): [list of keys]}
@@ -215,8 +238,7 @@ def build_color_frequency_map(vscode_colors: Dict[str, str]) -> Dict[str, List[s
 def map_vscode_to_base16(
     vscode_colors: Dict[str, str], base16_palette: Dict[str, str]
 ) -> Dict[str, List[Tuple[str, str]]]:
-    """
-    Map VS Code colors to base16 palette entries.
+    """Map VS Code colors to base16 palette entries.
 
     Returns dict: {base16_key: [list of vscode keys that use this color]}
     """
@@ -251,9 +273,7 @@ def display_color_analysis(
     vscode_to_base16: Dict[str, List[Tuple[str, str]]],
     frequency_map: Dict[str, List[str]],
 ):
-    """
-    Display the color mapping analysis with rich formatting.
-    """
+    """Display the color mapping analysis with rich formatting."""
     console.print("\n")
     console.print(
         Panel.fit(
@@ -280,9 +300,7 @@ def display_color_analysis(
         for variation_color, keys in color_variations.items():
             if variation_color != color:
                 console.print("    Variation: ", style="dim", end="")
-                console.print(
-                    f"{variation_color}", style=color_for_display(variation_color)
-                )
+                console.print(f"{variation_color}", style=color_for_display(variation_color))
 
             for key in keys[:5]:
                 console.print(f"      - {key}", style="dim")
@@ -298,21 +316,15 @@ def display_color_analysis(
         for key, color in unmapped:
             unmapped_by_color[color].append(key)
 
-        for color, keys in sorted(
-            unmapped_by_color.items(), key=lambda x: len(x[1]), reverse=True
-        ):
+        for color, keys in sorted(unmapped_by_color.items(), key=lambda x: len(x[1]), reverse=True):
             console.print(f"\n  Color: {color}", style=color_for_display(color))
             console.print(f"  Used in {len(keys)} locations:", style="dim")
 
-            closest_key, rgb_dist, delta_e = find_closest_base16_color(
-                color, base16_palette
-            )
+            closest_key, rgb_dist, delta_e = find_closest_base16_color(color, base16_palette)
             closest_color = base16_palette.get(closest_key, "")
 
             console.print("  Closest match: ", style="dim", end="")
-            console.print(
-                f"{closest_key} ", style=color_for_display(closest_color), end=""
-            )
+            console.print(f"{closest_key} ", style=color_for_display(closest_color), end="")
             console.print("-> ", style="dim", end="")
             console.print(f"{closest_color}", style=color_for_display(closest_color))
 
@@ -341,7 +353,6 @@ def display_color_analysis(
             if len(keys) > 3:
                 console.print(f"    ... and {len(keys) - 3} more", style="dim italic")
 
-    # Summary statistics
     console.print("\n")
     console.print(
         Panel.fit(
